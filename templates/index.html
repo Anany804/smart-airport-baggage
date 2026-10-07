@@ -1,0 +1,156 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Smart Airport Baggage HMI</title>
+<style>
+:root{
+  --bg:#08111f; --panel:#0e1a2b; --panel2:#122238; --line:#263a55;
+  --text:#e7eef8; --muted:#8fa3bd; --green:#28d17c; --red:#ff5a67;
+  --amber:#f3b33d; --blue:#4e9cff; --cyan:#51d6e8;
+}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(135deg,#07101d,#0b1626 45%,#0c1728);
+font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;color:var(--text)}
+header{padding:22px 28px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+h1{margin:0;font-size:22px;letter-spacing:.2px}.sub{color:var(--muted);font-size:13px;margin-top:5px}
+.status{padding:9px 14px;border-radius:999px;font-weight:700;font-size:13px;background:#263247}
+.status.running{background:rgba(40,209,124,.16);color:var(--green)}
+.status.stopped{background:rgba(143,163,189,.12);color:#b6c1d0}
+.status.fault{background:rgba(255,90,103,.16);color:var(--red)}
+.status.estop{background:rgba(243,179,61,.16);color:var(--amber)}
+main{padding:22px 28px 30px;max-width:1500px;margin:auto}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.card{background:rgba(14,26,43,.92);border:1px solid var(--line);border-radius:14px;padding:17px}
+.kpi-title{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.09em}
+.kpi{font-size:30px;font-weight:800;margin-top:8px}.kpi small{font-size:12px;color:var(--muted);font-weight:600}
+.section{margin-top:16px}
+.two{display:grid;grid-template-columns:1.65fr 1fr;gap:16px}
+.card h2{font-size:15px;margin:0 0 14px}.muted{color:var(--muted)}
+.controls{display:flex;gap:9px;flex-wrap:wrap}.btn{border:1px solid var(--line);background:#15263e;color:var(--text);
+padding:10px 14px;border-radius:9px;cursor:pointer;font-weight:700}.btn:hover{filter:brightness(1.12)}
+.btn.green{background:rgba(40,209,124,.13);border-color:rgba(40,209,124,.3);color:var(--green)}
+.btn.red{background:rgba(255,90,103,.12);border-color:rgba(255,90,103,.25);color:#ff8e96}
+.btn.amber{background:rgba(243,179,61,.12);border-color:rgba(243,179,61,.25);color:var(--amber)}
+.btn.blue{background:rgba(78,156,255,.13);border-color:rgba(78,156,255,.27);color:#83b8ff}
+.flow{position:relative;background:#0a1422;border:1px solid var(--line);border-radius:12px;padding:26px 16px 22px;overflow:hidden}
+.track{height:6px;background:#26384f;border-radius:5px;position:absolute;left:9%;right:9%;top:78px}
+.nodes{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;position:relative}
+.node{text-align:center}.circle{height:46px;width:46px;border-radius:50%;margin:auto;display:grid;place-items:center;
+background:#15263c;border:1px solid #35506f;font-weight:800}.node b{display:block;margin-top:8px;font-size:12px}.node span{display:block;color:var(--muted);font-size:10px;margin-top:3px}
+.badge{display:inline-block;font-size:10px;padding:4px 7px;border-radius:999px;background:#172940;color:#a8c5e8;margin-top:7px}
+.gates{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
+.gate{padding:12px;border-radius:11px;border:1px solid var(--line);background:#0b1626}
+.gate .n{font-weight:800}.gate .c{color:var(--muted);font-size:12px;margin-top:4px}.gate .count{font-size:24px;margin-top:10px;font-weight:800}
+.bar{height:7px;background:#1a2a40;border-radius:8px;overflow:hidden;margin-top:10px}.bar i{display:block;height:100%;background:var(--blue);width:65%}
+.events{max-height:315px;overflow:auto}.event{padding:9px 0;border-bottom:1px solid rgba(38,58,85,.6);font-size:12px}.event time{color:var(--muted);margin-right:7px}.event.success{color:#bcf6d8}.event.warning{color:#ffe2a2}.event.danger{color:#ffb3ba}
+.note{font-size:11px;color:var(--muted);margin-top:10px}
+@media(max-width:1000px){.grid{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}
+@media(max-width:600px){.grid{grid-template-columns:1fr}main{padding:16px}header{padding:16px}.nodes{grid-template-columns:1fr 1fr}.track{display:none}.gates{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Smart Airport Baggage Handling</h1>
+    <div class="sub">Operator HMI Prototype · Not connected to OpenPLC yet</div>
+  </div>
+  <div id="status" class="status stopped">STOPPED</div>
+</header>
+
+<main>
+  <div class="grid">
+    <div class="card"><div class="kpi-title">Total Baggage</div><div id="total" class="kpi">0</div></div>
+    <div class="card"><div class="kpi-title">Sorting Accuracy</div><div id="accuracy" class="kpi">100<small>%</small></div></div>
+    <div class="card"><div class="kpi-title">Avg Processing</div><div id="avg" class="kpi">0.0<small> s</small></div></div>
+    <div class="card"><div class="kpi-title">Throughput</div><div id="throughput" class="kpi">0.0<small>/min</small></div></div>
+  </div>
+
+  <div class="section card">
+    <h2>Operator Controls</h2>
+    <div class="controls">
+      <button class="btn green" onclick="act('start')">START</button>
+      <button class="btn" onclick="act('stop')">STOP</button>
+      <button class="btn" onclick="act('reset')">RESET FAULT</button>
+      <button class="btn amber" onclick="act('estop')">E-STOP</button>
+      <button class="btn blue" onclick="act('scan_DEL')">SCAN DEL</button>
+      <button class="btn blue" onclick="act('scan_BOM')">SCAN BOM</button>
+      <button class="btn blue" onclick="act('scan_DXB')">SCAN DXB</button>
+      <button class="btn red" onclick="act('misread')">INJECT MISREAD</button>
+      <button class="btn red" onclick="act('jam')">INJECT JAM</button>
+    </div>
+    <div class="note">Mock controls only. They simulate the future PLC actions and do not write to the OpenPLC runtime.</div>
+  </div>
+
+  <div class="section two">
+    <div class="card">
+      <h2>Live Baggage Flow</h2>
+      <div class="flow">
+        <div class="track"></div>
+        <div class="nodes">
+          <div class="node"><div class="circle">1</div><b>Check-in</b><span>Bag entry</span></div>
+          <div class="node"><div class="circle">2</div><b>Identify</b><span>Destination + category</span></div>
+          <div class="node"><div class="circle">3</div><b>Sort</b><span>Diverter decision</span></div>
+          <div class="node"><div class="circle">4</div><b>Conveyor</b><span>Gate branch</span></div>
+          <div class="node"><div class="circle">5</div><b>Gate</b><span>Arrival confirm</span></div>
+        </div>
+      </div>
+
+      <div class="gates">
+        <div class="gate"><div class="n">Gate 1 · DEL</div><div class="c">Delhi</div><div id="g1" class="count">0</div><div class="bar"><i id="b1" style="width:25%"></i></div></div>
+        <div class="gate"><div class="n">Gate 2 · BOM</div><div class="c">Mumbai</div><div id="g2" class="count">0</div><div class="bar"><i id="b2" style="width:15%"></i></div></div>
+        <div class="gate"><div class="n">Gate 3 · DXB</div><div class="c">Dubai</div><div id="g3" class="count">0</div><div class="bar"><i id="b3" style="width:10%"></i></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>System State</h2>
+      <p>Queue: <b id="queue">0</b></p>
+      <p>Correctly sorted: <b id="correct">0</b></p>
+      <p>Misrouted: <b id="mis">0</b></p>
+      <p>Unsorted: <b id="uns">0</b></p>
+      <p>Jams: <b id="jams">0</b></p>
+      <p>Fault: <b id="fault">None</b></p>
+      <p>Emergency stop: <b id="estop">Released</b></p>
+    </div>
+  </div>
+
+  <div class="section card">
+    <h2>Event Log</h2>
+    <div id="events" class="events"></div>
+  </div>
+</main>
+
+<script>
+async function act(action){
+  const r = await fetch('/api/action/' + action, {method:'POST'});
+  const d = await r.json();
+  if(!d.ok) alert(d.message || 'Action rejected');
+  refresh();
+}
+function setText(id, value){document.getElementById(id).textContent=value}
+function refresh(){
+  fetch('/api/state').then(r=>r.json()).then(d=>{
+    const status = document.getElementById('status');
+    status.textContent = d.emergency ? 'E-STOP' : (d.fault ? 'FAULT: '+d.fault_reason : d.system);
+    status.className = 'status ' + (d.emergency ? 'estop' : d.fault ? 'fault' : d.system.toLowerCase());
+    setText('total', d.total); setText('accuracy', d.accuracy);
+    document.getElementById('accuracy').innerHTML=d.accuracy+'<small>%</small>';
+    document.getElementById('avg').innerHTML=d.avg_time.toFixed(1)+'<small> s</small>';
+    document.getElementById('throughput').innerHTML=d.throughput.toFixed(1)+'<small>/min</small>';
+    setText('queue', d.queue); setText('correct', d.correct); setText('mis', d.misrouted); setText('uns', d.unsorted); setText('jams', d.jams);
+    setText('fault', d.fault ? d.fault_reason : 'None');
+    setText('estop', d.emergency ? 'Active' : 'Released');
+    setText('g1', d.gates.DEL); setText('g2', d.gates.BOM); setText('g3', d.gates.DXB);
+    document.getElementById('b1').style.width=Math.min(100, d.gates.DEL*10+5)+'%';
+    document.getElementById('b2').style.width=Math.min(100, d.gates.BOM*10+5)+'%';
+    document.getElementById('b3').style.width=Math.min(100, d.gates.DXB*10+5)+'%';
+    document.getElementById('events').innerHTML = d.events.length ? d.events.map(e=>`<div class="event ${e.kind}"><time>${e.time}</time>${e.message}</div>`).join('') : '<div class="muted">No events yet.</div>';
+  });
+}
+setInterval(refresh, 1000); refresh();
+</script>
+</body>
+</html>
